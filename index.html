@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="theme-color" content="#000000">
+<title>System Matrix Simulation</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;color:#00ff3c;font-family:monospace}
+body{touch-action:manipulation}
+canvas{position:fixed;inset:0;width:100%;height:100%;background:#000;display:none}
+#start{position:fixed;inset:0;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;z-index:20}
+.warn{font-size:clamp(16px,4vw,28px);letter-spacing:2px;text-shadow:0 0 10px currentColor;margin-bottom:28px}
+#launch{border:1px solid #00ff3c;background:#001b08;color:#00ff3c;padding:15px 28px;font:700 15px monospace;letter-spacing:2px;border-radius:4px;box-shadow:0 0 15px #00ff3c55;cursor:pointer}
+#launch:active{transform:scale(.96)}
+.sub{font-size:10px;opacity:.55;margin-top:16px;letter-spacing:2px}
+#hud,#status,#controls{display:none;position:fixed;z-index:10}
+#hud{top:10px;left:12px;font-size:10px;line-height:1.6;text-shadow:0 0 8px currentColor}
+#status{bottom:8px;left:50%;transform:translateX(-50%);font-size:9px;white-space:nowrap;opacity:.7}
+#controls{top:10px;right:10px;display:none;gap:5px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+select,button.ctrl{background:#000c;color:#00ff3c;border:1px solid currentColor;border-radius:3px;font:10px monospace;padding:7px 6px;outline:none}
+#rotate{display:none;position:fixed;inset:0;background:#000;color:#00ff3c;z-index:30;align-items:center;justify-content:center;text-align:center;font:700 16px monospace;letter-spacing:2px;text-shadow:0 0 10px currentColor}
+body.started canvas{display:block}
+body.started #start{display:none}
+body.started #hud,body.started #status,body.started #controls{display:flex}
+body.started #hud,body.started #status{display:block}
+body.started #controls{display:flex}
+body.started.portrait #rotate{display:flex}
+body.started.portrait canvas,body.started.portrait #hud,body.started.portrait #status,body.started.portrait #controls{display:none}
+@media(max-width:700px) and (orientation:landscape){
+#hud{font-size:8px}.status{font-size:8px}
+select,button.ctrl{font-size:9px;padding:5px}
+}
+</style>
+</head>
+<body>
+<div id="start">
+  <div class="warn">⚠ SYSTEM SIMULATION ⚠</div>
+  <button id="launch">LAUNCH ATTACK</button>
+  <div class="sub">VISUAL MATRIX PROTOCOL</div>
+</div>
+
+<div id="rotate">⟳ ROTATE DEVICE<br><small>Landscape mode required</small></div>
+<canvas id="matrix"></canvas>
+
+<div id="hud">
+  SYSTEM://MATRIX<br>
+  MODE://MULTICOLOR<br>
+  STATUS://ACTIVE
+</div>
+
+<div id="controls">
+  <select id="color">
+    <option value="green" selected>GREEN</option>
+    <option value="blue">NEON BLUE</option>
+    <option value="red">NEON RED</option>
+    <option value="purple">NEON PURPLE</option>
+    <option value="rainbow">RAINBOW</option>
+    <option value="multi">MULTI</option>
+  </select>
+  <select id="speed">
+    <option value=".35">SLOW</option>
+    <option value=".7" selected>NORMAL</option>
+    <option value="1.3">FAST</option>
+    <option value="2.4">INSANE</option>
+  </select>
+  <button class="ctrl" id="pause">PAUSE</button>
+  <button class="ctrl" id="full">FULL</button>
+</div>
+
+<div id="status">&gt;&gt; ATTACK SIMULATION ACTIVE &lt;&lt;</div>
+
+<script>
+const canvas=document.getElementById("matrix");
+const ctx=canvas.getContext("2d");
+let W=0,H=0,dpr=1,fontSize=8,columns=[],running=false,paused=false;
+let speed=.7,colorMode="green",audioCtx=null,ambienceTimer=null;
+
+const chars="01アイウエオカキクケコサシスセソタチツテトナニヌネノABCDEFGHIJKLMNOPQRSTUVWXYZ#$%&*+-<>?/";
+const palettes={
+ green:"#00ff3c",
+ blue:"#00eaff",
+ red:"#ff1744",
+ purple:"#c000ff"
+};
+const multi=["#00ff3c","#00eaff","#c000ff","#ff1744","#ff00cc","#00aaff"];
+
+function resize(){
+  dpr=Math.min(devicePixelRatio||1,2);
+  W=innerWidth;H=innerHeight;
+  canvas.width=Math.floor(W*dpr);canvas.height=Math.floor(H*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  fontSize=Math.max(6,Math.min(10,W/160));
+  ctx.font=fontSize+"px monospace";
+  const count=Math.ceil(W/fontSize)+2;
+  columns=Array.from({length:count},()=>Math.random()*H/fontSize);
+}
+function randChar(){return chars[(Math.random()*chars.length)|0]}
+function getColor(x){
+  if(colorMode==="rainbow")return `hsl(${(x/H*360+performance.now()/12)%360},100%,55%)`;
+  if(colorMode==="multi")return multi[(Math.random()*multi.length)|0];
+  return palettes[colorMode]||palettes.green;
+}
+function draw(){
+  if(!running)return;
+  requestAnimationFrame(draw);
+  if(paused)return;
+  ctx.fillStyle="rgba(0,0,0,.055)";
+  ctx.fillRect(0,0,W,H);
+  ctx.font=fontSize+"px monospace";
+  for(let i=0;i<columns.length;i++){
+    const x=i*fontSize;
+    const y=columns[i]*fontSize;
+    const c=getColor(y);
+    ctx.fillStyle=c;
+    if(Math.random()>.87){
+      ctx.fillStyle="#fff";
+      ctx.shadowBlur=8;ctx.shadowColor=c;
+    }else{
+      ctx.shadowBlur=0;
+    }
+    ctx.fillText(randChar(),x,y);
+    ctx.shadowBlur=0;
+    columns[i]+=speed;
+    if(y>H+fontSize*2 && Math.random()>.975)columns[i]=0;
+  }
+}
+
+function initAudio(){
+  if(audioCtx)return;
+  audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+}
+function tone(freq,duration,type="sine",gain=.025,delay=0){
+  if(!audioCtx)return;
+  const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+  o.type=type;o.frequency.setValueAtTime(freq,audioCtx.currentTime+delay);
+  g.gain.setValueAtTime(0,audioCtx.currentTime+delay);
+  g.gain.linearRampToValueAtTime(gain,audioCtx.currentTime+delay+.01);
+  g.gain.exponentialRampToValueAtTime(.0001,audioCtx.currentTime+delay+duration);
+  o.connect(g);g.connect(audioCtx.destination);
+  o.start(audioCtx.currentTime+delay);o.stop(audioCtx.currentTime+delay+duration+.03);
+}
+function launchSound(){
+  tone(160,.25,"sawtooth",.035);
+  tone(420,.18,"square",.025,.12);
+  tone(760,.25,"triangle",.03,.24);
+  tone(70,.5,"sine",.06,.34);
+}
+function clickSound(){
+  tone(520,.07,"square",.018);
+  tone(820,.06,"square",.012,.04);
+}
+function startAmbience(){
+  clearInterval(ambienceTimer);
+  ambienceTimer=setInterval(()=>{
+    if(!running||paused)return;
+    tone(110+Math.random()*180,.16,"sine",.008);
+  },1800);
+}
+
+async function fullscreen(){
+  try{
+    if(!document.fullscreenElement)await document.documentElement.requestFullscreen();
+    if(screen.orientation&&screen.orientation.lock)await screen.orientation.lock("landscape").catch(()=>{});
+  }catch(e){}
+}
+
+document.getElementById("launch").addEventListener("click",async()=>{
+  initAudio();
+  if(audioCtx.state==="suspended")await audioCtx.resume();
+  launchSound();
+  running=true;paused=false;
+  document.body.classList.add("started");
+  document.getElementById("pause").textContent="PAUSE";
+  await fullscreen();
+  resize();
+  startAmbience();
+  draw();
+});
+
+document.getElementById("color").addEventListener("change",e=>{
+  colorMode=e.target.value;clickSound();
+});
+document.getElementById("speed").addEventListener("change",e=>{
+  speed=Number(e.target.value);clickSound();
+});
+document.getElementById("pause").addEventListener("click",e=>{
+  paused=!paused;e.target.textContent=paused?"PLAY":"PAUSE";clickSound();
+});
+document.getElementById("full").addEventListener("click",async()=>{
+  clickSound();
+  if(document.fullscreenElement){
+    await document.exitFullscreen().catch(()=>{});
+  }else{
+    await fullscreen();
+  }
+});
+
+function orientationUpdate(){
+  document.body.classList.toggle("portrait",innerHeight>innerWidth);
+  resize();
+}
+addEventListener("resize",orientationUpdate);
+addEventListener("orientationchange",orientationUpdate);
+resize();
+</script>
+</body>
+</html>
